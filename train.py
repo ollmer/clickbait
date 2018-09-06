@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='clickbait')
     parser.add_argument('--num-iterations', type=int, default=70_000, metavar='NI',
                         help='num iterations (default: 70_000)')
-    parser.add_argument('--batch-size', type=int, default=50, metavar='S')
+    parser.add_argument('--batch-size', type=int, default=32, metavar='S')
     parser.add_argument('--num-threads', type=int, default=4, metavar='BS',
                         help='num threads (default: 4)')
     parser.add_argument('--num-layers', type=int, default=8, metavar='NL',
@@ -25,6 +25,8 @@ if __name__ == '__main__':
                         help='Name for tensorboard model')
     args = parser.parse_args()
 
+    print('batch', args.batch_size)
+
     device = t.device('cuda' if t.cuda.is_available() else 'cpu')
 
     writer = SummaryWriter(args.tensorboard)
@@ -36,7 +38,7 @@ if __name__ == '__main__':
                   args.num_heads,
                   args.dropout,
                   max_len=loader.max_len,
-                  embeddings_path='./data/embeddings.npy')
+                  embeddings_path='./data/opensub_bpe10k_embeddings.npy')
     model.to(device)
 
     optimizer = Optimizer(model.learnable_parameters(), lr=0.0002, amsgrad=True)
@@ -74,7 +76,9 @@ if __name__ == '__main__':
 
         if (i + 1) % 10000 == 0:
             model = model.cpu()
-            t.save(model.state_dict(), '{}_{}'.format(args.tensorboard, i))
+            snapshot_name = 'ost_{}_{}.pth'.format(args.tensorboard, i)
+            t.save(model.state_dict(), snapshot_name)
+            print('saved', snapshot_name)
             model.to(device)
 
     model.eval()

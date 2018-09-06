@@ -1,6 +1,24 @@
 import numpy as np
 import sentencepiece as spm
 import torch as t
+from tqdm import tqdm
+
+
+class MySentences:
+    def __init__(self, fname):
+        self.corpus = []
+        with open(fname) as f:
+            for i, line in enumerate(tqdm(f)):
+                if len(line) < 20:
+                    continue
+                self.corpus.append(line.rstrip('\n'))
+
+    def __len__(self):
+        return len(self.corpus)
+
+    def __iter__(self):
+        for line in tqdm(self.corpus):
+            yield line
 
 
 class Dataloader:
@@ -15,22 +33,26 @@ class Dataloader:
         self.targets = ['train', 'test']
 
         self.data = {
-            target: np.load('{}{}.npy'.format(data_path, target))
+            target: MySentences('data/opensub_%s.txt' % target).corpus
             for target in self.targets
         }
+        print('data loaded', [len(d) for d in self.data.values()])
 
         self.sp = spm.SentencePieceProcessor()
-        self.sp.Load('{}wut.model'.format(data_path))
+        bpefile = '{}bpe/opensub10k_bpe.model'.format(data_path)
+        self.sp.Load(bpefile)
+        print('loaded bpe', bpefile)
 
         '''
         Actually, max length is lower than this value
         '''
         self.max_len = max([len(line) for tar in self.targets for line in self.data[tar]])
+        print('max len found', self.max_len)
 
     def next_batch(self, batch_size, target, device):
         data = self.data[target]
 
-        input = data[np.random.randint(len(data), size=batch_size)]
+        input = [data[np.random.randint(len(data))] for _ in range(batch_size)]
 
         input = [[1] + self.sp.EncodeAsIds(line) + [2] for line in input]
 
